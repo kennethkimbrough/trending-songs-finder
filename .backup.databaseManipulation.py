@@ -1,5 +1,5 @@
 
-from spotify_api import authenticate, get_recommendations
+from spotify import authenticate, get_recommendations
 from database import save
 
 def main():
