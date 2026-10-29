@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def save(data):
+    mydb = None
     try:
         mydb = mysql.connector.connect(
             host=DB_HOST,
@@ -19,7 +20,7 @@ def save(data):
         mycursor = mydb.cursor()
         if len(data) > 0:
             for row in data:
-                sql = "INSERT INTO records (name, duration, url) VALUES (%s,%s,%s)"
+                sql = "INSERT INTO records (name, url, duration) VALUES (%s,%s,%s)"
                 val = (row[0], row[1], row[2])
                 mycursor.execute(sql, val)
             mydb.commit()
@@ -27,6 +28,6 @@ def save(data):
     except Error as e:
         logger.error(f"Error saving data to database: {e}")
     finally:
-        if mydb.is_connected():
+        if mydb is not None and mydb.is_connected():
             mycursor.close()
             mydb.close()

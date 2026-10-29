@@ -26,6 +26,15 @@ class TestDatabase(unittest.TestCase):
 
         self.assertEqual(mock_cursor.execute.call_count, 2)
         self.assertEqual(mock_db.commit.call_count, 1)
+        sql, values = mock_cursor.execute.call_args_list[0].args
+        self.assertEqual(sql, "INSERT INTO records (name, url, duration) VALUES (%s,%s,%s)")
+        self.assertEqual(values, ('Song1', 'url1', 300000))
+
+    @patch('database.mysql.connector.connect')
+    def test_save_handles_connection_error(self, mock_connect):
+        from mysql.connector import Error
+        mock_connect.side_effect = Error("cannot connect")
+        save([['Song1', 'url1', 300000]])  # must not raise
 
 if __name__ == '__main__':
     unittest.main()
