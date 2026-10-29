@@ -1,11 +1,8 @@
+"""Kept for the old command name; `python main.py fetch` is the entry point now."""
 
-from spotify_api import authenticate, get_recommendations
-from database import save
+import sys
 
-def main():
-    access_token = authenticate()
-    data = get_recommendations(access_token)
-    save(data)
+from main import main
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(["fetch"]))
