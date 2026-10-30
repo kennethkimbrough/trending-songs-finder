@@ -6,6 +6,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+HEADERS = {"User-Agent": "trending-songs-finder (+https://github.com/kennethkimbrough/trending-songs-finder)",
+           "Accept": "application/json"}
 TOP_SONGS_URL = "https://rss.marketingtools.apple.com/api/v2/{country}/music/most-played/{limit}/songs.json"
 
 
@@ -17,7 +19,7 @@ def get_top_songs(country="US", limit=100):
     """Return the current Top Songs chart for a country, in chart order."""
     url = TOP_SONGS_URL.format(country=country.lower(), limit=min(max(limit, 1), 100))
     try:
-        res = requests.get(url, timeout=20)
+        res = requests.get(url, headers=HEADERS, timeout=20)
         res.raise_for_status()
         payload = res.json()
     except (requests.exceptions.RequestException, ValueError) as e:
