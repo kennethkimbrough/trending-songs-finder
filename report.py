@@ -71,4 +71,4 @@ def format_rows(rows):
 
 
 def _label(r):
-    return f"{r['name']} — {r['artists']}"
+    return f"{r['name']} by {r['artists']}"

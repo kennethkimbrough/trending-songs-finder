@@ -21,16 +21,16 @@ Run 12 fetched 2026-10-30 09:00:00 (US), 50 releases
 
 Compared with run 11 (2026-10-29 09:00:00)
   entered the list: 4
-    #1   <album> — <artists>
+    #1   <album> by <artists>
     ...
   dropped off: 4
-    was #38  <album> — <artists>
+    was #38  <album> by <artists>
   biggest moves: 31 changed position
-    +12  #3   <album> — <artists>
+    +12  #3   <album> by <artists>
     ...
 
 Staying power over the last 5 runs
-    5 runs  <album> — <artists>
+    5 runs  <album> by <artists>
     ...
 ```
 
