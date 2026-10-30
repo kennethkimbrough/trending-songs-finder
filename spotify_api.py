@@ -1,4 +1,8 @@
-"""Spotify Web API calls: client-credentials auth and the new-releases list."""
+"""Spotify Web API calls: client-credentials auth and the new-releases list.
+
+Spotify removed /browse/new-releases from Development Mode apps in February 2026, so
+only apps with extended access can use this source; the default source is Apple Music.
+"""
 
 import base64
 import logging
@@ -41,13 +45,16 @@ def authenticate():
 def get_new_releases(access_token, market="US", limit=50):
     """Return the current new-releases list for a market as a list of dicts, ordered as Spotify ranks them.
 
-    Each row: position (1-based), album_id, name, artists, album_type, release_date, total_tracks, url.
+    Each row: position (1-based), item_id (the album id), name, artists, kind (album type), genre (empty:
+    the endpoint gives none), release_date, url.
     """
     params = urlencode({"country": market, "limit": min(max(limit, 1), 50)})
     res = requests.get(f"{NEW_RELEASES_URL}?{params}",
                        headers={"Authorization": f"Bearer {access_token}"}, timeout=15)
-    if res.status_code in (401, 403, 429):
-        raise SpotifyError(f"Spotify returned HTTP {res.status_code}: {res.text[:200]}")
+    if res.status_code in (401, 403, 404, 429):
+        raise SpotifyError(f"Spotify returned HTTP {res.status_code}: {res.text[:200]}"
+                           + (" (New Releases is not available to Development Mode apps since February 2026)"
+                              if res.status_code in (403, 404) else ""))
     res.raise_for_status()
     return parse_new_releases(res.json())
 
@@ -60,12 +67,12 @@ def parse_new_releases(payload):
             continue
         rows.append({
             "position": position,
-            "album_id": album["id"],
+            "item_id": album["id"],
             "name": album.get("name", ""),
             "artists": ", ".join(a.get("name", "") for a in album.get("artists", []) if a),
-            "album_type": album.get("album_type", ""),
+            "kind": album.get("album_type", ""),
+            "genre": "",
             "release_date": album.get("release_date", ""),
-            "total_tracks": album.get("total_tracks") or 0,
             "url": (album.get("external_urls") or {}).get("spotify", ""),
         })
     logger.info("Fetched %d new releases", len(rows))

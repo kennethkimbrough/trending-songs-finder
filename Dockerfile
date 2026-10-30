@@ -5,7 +5,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
-# Credentials and database settings come from the environment at run time:
-#   docker run --rm -e SPOTIFY_CLIENT_ID=... -e SPOTIFY_CLIENT_SECRET=... -e DB_HOST=... trending-songs-finder
+# Settings come from the environment at run time:
+#   docker run --rm -v "$PWD/data:/app/data" trending-songs-finder          (Apple Music chart, CSV history)
+#   docker run --rm -e STORAGE=mysql -e DB_HOST=... trending-songs-finder   (MySQL storage)
 ENTRYPOINT ["python", "main.py"]
 CMD ["fetch"]

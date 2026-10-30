@@ -2,78 +2,111 @@
 
 [![Tests](https://github.com/kennethkimbrough/trending-songs-finder/actions/workflows/tests.yml/badge.svg)](https://github.com/kennethkimbrough/trending-songs-finder/actions/workflows/tests.yml)
 
-Tracks Spotify's new-releases list for a country over time. Each run stores
-the current list in MySQL; the report compares the latest run with the one
-before it and shows what entered, what dropped off, what moved, and which
-releases have stayed on the list longest.
+Tracks a music chart over time. Once a day it records Apple Music's Top Songs
+chart for the US, adds it to a history, and reports what entered, what dropped
+off, what moved, each song's peak position and how many days it has lasted.
+
+**Live page:** https://kennethkimbrough.github.io/trending-songs-finder/ is
+rebuilt from the history after every daily run.
 
 ## What it does
 
-`fetch` authenticates with the Spotify Web API (client-credentials flow),
-pulls the [new releases](https://developer.spotify.com/documentation/web-api/reference/get-new-releases)
-for a market (default `US`, up to 50 entries), and stores one row in `runs`
-plus one row per release in `releases`, keeping each release's position.
+`fetch` reads the current chart and stores it as one run: up to 100 songs with
+their position, artist, genre, release date and link. The default source is
+Apple Music's public Top Songs feed, which needs no account or key.
 
-`report` loads the last few runs and prints:
+`report` compares the latest run with the one before it:
 
 ```
-Run 12 fetched 2026-10-30 09:00:00 (US), 50 releases
+Run 12 fetched 2026-11-10T14:41:07 (apple, US), 100 entries
 
-Compared with run 11 (2026-10-29 09:00:00)
-  entered the list: 4
-    #1   <album> by <artists>
+Compared with run 11 (2026-11-09T14:41:02)
+  entered the chart: 4
+    #23  <song> by <artist>
     ...
   dropped off: 4
-    was #38  <album> by <artists>
-  biggest moves: 31 changed position
-    +12  #3   <album> by <artists>
+    was #87  <song> by <artist>
+  biggest moves: 61 changed position
+    +18  #41  <song> by <artist>
     ...
 
 Staying power over the last 5 runs
-    5 runs  <album> by <artists>
+    5 runs  <song> by <artist>
     ...
 ```
 
-`fetch --dry-run` prints the fetched list as a table and writes nothing, so
-you can try it with just Spotify credentials and no database.
+`export` writes `site/chart.json` for the page: today's chart with each song's
+movement, peak, days on the chart and its positions over the last 30 days, plus
+the songs that dropped off.
 
-> The project originally used Spotify's Recommendations endpoint. Spotify
-> restricted that endpoint to existing apps in November 2024, so new apps
-> get `403`. `spotify_api.get_recommendations` is still there for apps that
-> have access, but the tracker is built on New Releases, which remains open.
+`fetch --dry-run` prints the chart as a table and stores nothing.
+
+## Where the data comes from, and why not Spotify
+
+The project started on Spotify's Web API. Spotify restricted its
+Recommendations endpoint to existing apps in November 2024, and in February
+2026 removed New Releases (and other browse endpoints) from Development Mode
+apps altogether, while also requiring the app owner to have Premium. A new
+developer app can no longer read either list.
+
+So the default source is now Apple Music's Top Songs feed
+(`rss.marketingtools.apple.com`), which is public. The Spotify code is still
+here as `--source spotify` for apps that have extended access; it stores the
+same row shape (with the album as the item).
+
+## How it runs
+
+```mermaid
+flowchart LR
+  feed[Apple Music Top Songs feed] -->|daily job| fetch[main.py fetch]
+  fetch --> csv[(data/history.csv)]
+  csv --> export[main.py export]
+  export --> json[(site/chart.json)]
+  json --> page[GitHub Pages]
+```
+
+- `.github/workflows/daily-chart.yml` runs every day: it fetches the chart,
+  appends it to `data/history.csv`, writes `site/chart.json`, puts the text
+  report in the run summary, and commits both files.
+- `.github/workflows/pages.yml` publishes `site/` after each daily run.
+- `.github/workflows/tests.yml` runs the tests on every push.
+
+The history is a plain CSV so that each day's commit is a small text diff.
+MySQL is still supported for anyone who wants the data in a database
+(`STORAGE=mysql`, tables in `schema.sql`).
 
 ## Run it
 
-Requires Python 3.10+, a Spotify developer app (client ID and secret), and
-for storage a MySQL server.
+Requires Python 3.10+.
 
 ```sh
 pip install -r requirements.txt
-
-export SPOTIFY_CLIENT_ID='your_client_id'
-export SPOTIFY_CLIENT_SECRET='your_client_secret'
-python main.py fetch --dry-run            # no database needed
-
-mysql -u root -p -e 'CREATE DATABASE dbspotify'
-mysql -u root -p dbspotify < schema.sql   # creates runs and releases
-export DB_HOST=localhost DB_USER=root DB_PASSWORD='' DB_NAME=dbspotify
-python main.py fetch                      # stores a run
+python main.py fetch --dry-run              # print today's chart
+python main.py fetch                        # store it in data/history.csv
 python main.py report --runs 5 --top 10
+python main.py export                       # write site/chart.json
+(cd site && python3 -m http.server 8000)    # look at the page
 ```
 
-`--market GB` (or `SPOTIFY_MARKET`) changes the country; `--limit`
-(or `SPOTIFY_LIMIT`) caps the entries per run. Run `fetch` on a schedule
-(cron, a container, or a workflow with secrets) to build up history; the
-report only gets interesting from the second run.
+Options: `--market GB` (or `CHART_MARKET`) changes the country; `--limit`
+(or `CHART_LIMIT`) caps the entries per run; `--source spotify` uses Spotify
+with `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` set.
 
-With Docker, the image takes all settings from the environment and runs
-`fetch` by default:
+To store runs in MySQL instead of the CSV file:
+
+```sh
+mysql -u root -p -e 'CREATE DATABASE dbspotify'
+mysql -u root -p dbspotify < schema.sql
+export STORAGE=mysql DB_HOST=localhost DB_USER=root DB_PASSWORD='' DB_NAME=dbspotify
+python main.py fetch
+```
+
+With Docker, the image runs `fetch` by default:
 
 ```sh
 docker build -t trending-songs-finder .
-docker run --rm -e SPOTIFY_CLIENT_ID=... -e SPOTIFY_CLIENT_SECRET=... \
-  -e DB_HOST=host.docker.internal trending-songs-finder
-docker run --rm ... trending-songs-finder report
+docker run --rm -v "$PWD/data:/app/data" trending-songs-finder
+docker run --rm -v "$PWD/data:/app/data" trending-songs-finder report
 ```
 
 ## Tests
@@ -82,29 +115,38 @@ docker run --rm ... trending-songs-finder report
 python -m unittest discover -s tests
 ```
 
-The tests mock the HTTP client and the MySQL driver, so they run with no
-credentials, network or database: response parsing, the SQL issued for a
-run, grouping of loaded runs, and the diff and staying-power calculations.
-They run on every push through GitHub Actions.
+The tests mock the HTTP client and the MySQL driver, so they need no network,
+credentials or database: parsing both feeds, the CSV history (round trip,
+quoting, run ids), the SQL issued for MySQL, the diff and staying-power
+calculations, and the summary the page is built from (previous position, peak,
+days on the chart, position history, drop-offs). The MySQL tests are skipped
+when the driver is not installed.
 
 ## Layout
 
 ```
-main.py                 command line: fetch, report
-spotify_api.py          auth, new releases, response parsing
-database.py             MySQL: save_run, load_runs
-report.py               pure functions: diff between runs, staying power, text formatting
-config.py               settings from environment variables
-schema.sql              the two tables
-databaseManipulation.py the original entry point, now a shim for `fetch`
-tests/                  unittest + mock
-legacy/                 earlier editor backups of the first version
+main.py             command line: fetch, report, export
+apple_music.py      the Apple Music Top Songs feed and its parsing
+spotify_api.py      Spotify auth, New Releases and parsing (for apps with access)
+database.py         storage: save_run, load_runs, over a CSV file or MySQL
+report.py           pure functions: diffs, staying power, the page summary, text formatting
+config.py           settings from environment variables
+schema.sql          the MySQL tables
+data/history.csv    every recorded run (written by the daily job)
+site/               the page: index.html, app.js and chart.json
+tests/              unittest + mock
 ```
 
 ## Tech stack
 
-Python, `requests`, `mysql-connector-python`, `unittest`, Docker, GitHub Actions.
+Python, `requests`, `csv`, `mysql-connector-python` (optional), `unittest`,
+Docker, GitHub Actions, GitHub Pages.
+
+## Data
+
+Chart data comes from Apple's public marketing feed and remains Apple's; it is
+used here for personal, non-commercial tracking.
 
 ## License
 
-MIT
+MIT (code only)

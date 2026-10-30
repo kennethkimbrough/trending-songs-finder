@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trending Songs</title>
+  <meta name="description" content="Apple Music's US Top Songs chart, recorded every day: what's new, what climbed, what dropped off, each song's peak and how long it has stayed.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111'/%3E%3Cpath d='M24 44V18l22-5v26' fill='none' stroke='%23ff4f7b' stroke-width='5' stroke-linejoin='round'/%3E%3Ccircle cx='19' cy='44' r='6' fill='%23ff4f7b'/%3E%3Ccircle cx='41' cy='39' r='6' fill='%23ff4f7b'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #fafafa; --card: #fff; --ink: #111; --ink-2: #555; --ink-3: #8b8b8b; --line: #e6e6e6;
+      --accent: #e8285a; --up: #0f8a4b; --down: #c4262e; --new: #6f3ff5;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #0d0d0f; --card: #17171a; --ink: #f2f2f3; --ink-2: #b7b7bd; --ink-3: #7d7d85; --line: #2a2a30; --accent: #ff4f7b; --up: #3ccf86; --down: #ff6b72; --new: #a88bff; }
+    }
+    :root[data-theme="dark"] { --bg: #0d0d0f; --card: #17171a; --ink: #f2f2f3; --ink-2: #b7b7bd; --ink-3: #7d7d85; --line: #2a2a30; --accent: #ff4f7b; --up: #3ccf86; --down: #ff6b72; --new: #a88bff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--sans); }
+    a { color: inherit; }
+    header, main, footer { max-width: 56rem; margin: 0 auto; padding: 0 16px; }
+    header { padding-top: 2.5rem; }
+    .kicker { margin: 0; color: var(--accent); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; }
+    h1 { margin: .2rem 0 .4rem; font-size: clamp(2.1rem, 7vw, 3.4rem); line-height: 1.02; letter-spacing: -.03em; }
+    .lede { color: var(--ink-2); max-width: 40rem; margin: 0 0 .8rem; }
+    .status { font-family: var(--mono); font-size: .82rem; color: var(--ink-2); }
+    .note { border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); padding: .6rem .9rem; border-radius: 4px; margin: 1rem 0 0; }
+    .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 1.4rem 0; }
+    @media (min-width: 720px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .85rem 1rem; }
+    .tile .v { font-size: 1.8rem; font-weight: 750; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .tile .k { color: var(--ink-2); font-size: .84rem; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; margin: 0 0 14px; }
+    h2 { margin: 0 0 .2rem; font-size: 1.15rem; }
+    .sub { margin: 0 0 .8rem; color: var(--ink-2); font-size: .9rem; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: .6rem; }
+    input, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .65rem; min-height: 44px; }
+    input[type=search] { flex: 1 1 14rem; }
+    input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    ol.chart { list-style: none; margin: 0; padding: 0; }
+    .row { display: grid; grid-template-columns: 2.6rem 3.4rem 1fr auto; gap: 10px; align-items: center; padding: .55rem .2rem; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: 0; }
+    .pos { font-size: 1.35rem; font-weight: 750; text-align: right; font-variant-numeric: tabular-nums; }
+    .move { font-family: var(--mono); font-size: .78rem; font-weight: 700; text-align: center; border-radius: 6px; padding: .1rem 0; }
+    .move.up { color: var(--up); } .move.down { color: var(--down); } .move.same { color: var(--ink-3); }
+    .move.new { color: #fff; background: var(--new); }
+    .title { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .title a { text-decoration: none; } .title a:hover { text-decoration: underline; }
+    .meta { color: var(--ink-2); font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stats { display: flex; gap: 14px; align-items: center; font-size: .78rem; color: var(--ink-3); text-align: right; }
+    .stats b { display: block; color: var(--ink); font-size: .92rem; font-family: var(--mono); }
+    .spark { width: 84px; height: 28px; }
+    @media (max-width: 560px) { .row { grid-template-columns: 2.2rem 3rem 1fr; } .stats { grid-column: 3; justify-content: flex-start; text-align: left; } .spark { display: none; } }
+    .bars { display: flex; flex-direction: column; gap: 5px; }
+    .bar { display: grid; grid-template-columns: 9rem 1fr 2.2rem; gap: 8px; align-items: center; font-size: .9rem; }
+    .bar .name { text-align: right; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar .track { height: 14px; border-radius: 3px; background: color-mix(in srgb, var(--line) 60%, transparent); overflow: hidden; }
+    .bar .fill { height: 100%; background: var(--accent); }
+    .bar .n { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); text-align: right; }
+    .grid2 { display: grid; gap: 14px; } @media (min-width: 820px) { .grid2 { grid-template-columns: 1fr 1fr; } .grid2 section { margin: 0; } }
+    ul.plain { margin: 0; padding-left: 1.1rem; } ul.plain li { margin: .2rem 0; }
+    .muted { color: var(--ink-3); }
+    footer { color: var(--ink-3); font-size: .85rem; padding: .6rem 16px 3rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="kicker">Daily chart tracker</p>
+    <h1>Trending songs</h1>
+    <p class="lede">Apple Music's Top Songs chart for the US, recorded once a day. Each day's chart is added to a history, and this page shows what's new, what climbed, what dropped off, and how long each song has lasted.</p>
+    <p class="status" id="status">Loading…</p>
+    <div id="note"></div>
+  </header>
+  <main>
+    <div class="tiles" id="tiles"></div>
+    <section>
+      <h2>Today's chart</h2>
+      <p class="sub" id="chart-sub"></p>
+      <div class="controls">
+        <input id="q" type="search" placeholder="Search song or artist" aria-label="Search song or artist">
+        <select id="show" aria-label="Show">
+          <option value="">All songs</option><option value="new">New this run</option>
+          <option value="up">Climbing</option><option value="down">Falling</option>
+        </select>
+      </div>
+      <ol class="chart" id="chart"></ol>
+    </section>
+    <div class="grid2">
+      <section>
+        <h2>By genre</h2>
+        <p class="sub">Songs on today's chart, by Apple's primary genre.</p>
+        <div class="bars" id="genres"></div>
+      </section>
+      <section>
+        <h2>Dropped off</h2>
+        <p class="sub" id="dropped-sub"></p>
+        <ul class="plain" id="dropped"></ul>
+      </section>
+    </div>
+  </main>
+  <footer>
+    <p>Chart data: Apple Music's public Top Songs feed (<code>rss.marketingtools.apple.com</code>). The full history is a plain CSV in the repository. Code, tests and the daily job: <a href="https://github.com/kennethkimbrough/trending-songs-finder">github.com/kennethkimbrough/trending-songs-finder</a>.</p>
+  </footer>
+  <noscript><p style="max-width:56rem;margin:0 auto;padding:0 16px">This page needs JavaScript. The data is <a href="chart.json">plain JSON</a>.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

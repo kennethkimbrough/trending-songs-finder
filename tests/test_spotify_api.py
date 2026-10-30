@@ -48,8 +48,8 @@ class TestNewReleases(unittest.TestCase):
         rows = parse_new_releases(SAMPLE)
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0], {
-            "position": 1, "album_id": "alb1", "name": "First Album", "artists": "Artist One, Artist Two",
-            "album_type": "album", "release_date": "2026-10-24", "total_tracks": 12,
+            "position": 1, "item_id": "alb1", "name": "First Album", "artists": "Artist One, Artist Two",
+            "kind": "album", "genre": "", "release_date": "2026-10-24",
             "url": "https://open.spotify.com/album/alb1",
         })
         self.assertEqual(rows[1]["position"], 2)
@@ -71,8 +71,9 @@ class TestNewReleases(unittest.TestCase):
     def test_restricted_endpoint_raises_a_clear_error(self, mock_get):
         mock_get.return_value.status_code = 403
         mock_get.return_value.text = "forbidden"
-        with self.assertRaises(SpotifyError):
+        with self.assertRaises(SpotifyError) as cm:
             get_new_releases('tok')
+        self.assertIn("Development Mode", str(cm.exception))
 
 
 if __name__ == '__main__':
